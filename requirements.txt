@@ -1,11 +1,11 @@
-google-generativeai
-python-dotenv
-langchain
-langchain-community
-langchain-google-genai
-chromadb
-pypdf
-PyPDF2
-transformers
-django
-markdown
+Django>=5.1,<5.3
+django-cotton>=2.0,<3
+dj-database-url>=2.2
+python-dotenv>=1.0
+google-genai>=1.0
+markdown-it-py>=3.0
+nh3>=0.2.17
+numpy>=1.26
+pypdf>=4.0
+# PostgreSQL en production :
+psycopg[binary]>=3.1

@@ -1,0 +1,37 @@
+{% extends "chat/app.html" %}
+{% block titre %}Réglages{% endblock %}
+{% block contenu %}
+<div class="page narrow">
+  <header class="stack-sm">
+    <h1>Lecture et confort</h1>
+    <p class="muted">Règle Learny pour lire sans effort. Ces réglages s'appliquent sur tous tes appareils.</p>
+  </header>
+  <form method="post" class="settings" novalidate>
+    {% csrf_token %}
+    <fieldset class="set-group">
+      <legend>Texte</legend>
+      <div class="field">
+        <label for="{{ form.taille_texte.id_for_label }}">{{ form.taille_texte.label }}</label>
+        <select class="select" id="{{ form.taille_texte.id_for_label }}" name="{{ form.taille_texte.html_name }}" data-apercu-taille>
+          {% for v, l in form.taille_texte.field.choices %}<option value="{{ v }}" {% if v == form.taille_texte.value|add:0 %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+      </div>
+      <c-switch :field="form.police_lecture" />
+      <p class="preview-text" id="apercu">Dans le triangle ABC, si (DE) est parallèle à (BC), alors AD ÷ AB = AE ÷ AC = DE ÷ BC.</p>
+    </fieldset>
+    <fieldset class="set-group">
+      <legend>Affichage</legend>
+      <div class="radios" role="radiogroup" aria-labelledby="t-theme">
+        <span class="lbl" id="t-theme">{{ form.theme.label }}</span>
+        {% for r in form.theme %}<label class="radio">{{ r.tag }} {{ r.choice_label }}</label>{% endfor %}
+      </div>
+      <c-switch :field="form.reduire_animations" />
+    </fieldset>
+    <fieldset class="set-group">
+      <legend>Données</legend>
+      <c-switch :field="form.economie_donnees" />
+    </fieldset>
+    <div><c-button variant="primary" icon="check" type="submit">Enregistrer</c-button></div>
+  </form>
+</div>
+{% endblock %}

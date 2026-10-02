@@ -1,0 +1,34 @@
+{% extends "chat/base.html" %}
+{% block page %}
+<div class="app">
+  <aside class="app-side" aria-label="Menu">
+    <a class="logo" href="{% url 'accueil' %}"><span class="mk"><c-icon name="learny" /></span>Learny</a>
+    <nav class="side" aria-label="Navigation principale">
+      <a class="nav-it" href="{% url 'accueil' %}" {% if nav == 'accueil' %}aria-current="page"{% endif %}><c-icon name="home" />Accueil</a>
+      {% for mm in nav_matieres %}
+      <a class="nav-it" href="{% url 'matiere' mm.slug %}" {% if nav == mm.slug %}aria-current="page"{% endif %}><c-icon :name="mm.icone" />{{ mm.nom }}</a>
+      {% endfor %}
+      <a class="nav-it" href="{% url 'reglages' %}" {% if nav == 'reglages' %}aria-current="page"{% endif %}><c-icon name="set" />Réglages</a>
+    </nav>
+    {% block side_extra %}{% endblock %}
+    <div class="side-foot">
+      <p class="help"><c-icon name="help" size="16" /> Aide sur WhatsApp : <span class="mono">{{ aide_whatsapp }}</span></p>
+      <div class="me">
+        <span class="avatar sm" aria-hidden="true">{{ user.first_name|first|upper|default:"?" }}</span>
+        <div><b>{{ user.first_name|default:user.username }}</b><br><span class="help">3e · BEPC</span></div>
+      </div>
+      <form method="post" action="{% url 'deconnexion' %}">{% csrf_token %}<c-button variant="ghost" size="sm" icon="out" type="submit">Se déconnecter</c-button></form>
+    </div>
+  </aside>
+  <main class="app-main" id="contenu" tabindex="-1">
+    {% block contenu %}{% endblock %}
+  </main>
+  <nav class="bottom-bar" aria-label="Navigation">
+    <a class="bb-it" href="{% url 'accueil' %}" {% if nav == 'accueil' %}aria-current="page"{% endif %}><c-icon name="home" />Accueil</a>
+    {% for mm in nav_matieres %}
+    <a class="bb-it" href="{% url 'matiere' mm.slug %}" {% if nav == mm.slug %}aria-current="page"{% endif %}><c-icon :name="mm.icone" />{% if mm.slug == 'physique-chimie' %}PC{% elif mm.slug == 'maths' %}Maths{% else %}{{ mm.nom }}{% endif %}</a>
+    {% endfor %}
+    <a class="bb-it" href="{% url 'reglages' %}" {% if nav == 'reglages' %}aria-current="page"{% endif %}><c-icon name="set" />Réglages</a>
+  </nav>
+</div>
+{% endblock %}

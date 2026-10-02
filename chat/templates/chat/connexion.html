@@ -1,0 +1,15 @@
+{% extends "chat/auth.html" %}
+{% block titre %}Connexion{% endblock %}
+{% block formulaire %}
+<h1>Content de te revoir</h1>
+<form method="post" novalidate class="stack">
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+  <c-alert tone="bad" title="Connexion impossible.">{{ form.non_field_errors|join:" " }}</c-alert>
+  {% endif %}
+  <c-field :field="form.identifiant" autocomplete="username" inputmode="tel" icon="phone" />
+  <c-field :field="form.password" autocomplete="current-password" icon="lock" />
+  <label class="check"><input type="checkbox" name="rester" checked> Rester connecté sur ce téléphone</label>
+  <c-button variant="primary" size="lg" type="submit" block="1">Se connecter</c-button>
+</form>
+{% endblock %}

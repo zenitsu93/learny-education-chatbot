@@ -1,20 +1,21 @@
 from django.urls import path
+
 from . import views
 
-
 urlpatterns = [
-    path('', views.home, name='home'),
-    path('cours/', views.cours, name='cours'),
-    path('compte/', views.compte_view, name='compte'),
-    path('parametre/', views.parametre_view, name='parametre'),
-    path('cours/<str:cours_name>/', views.chatbot, name='chatbot'),
-    path('logout/', views.user_logout, name='logout'),    
-    path('new_chat/', views.new_chat, name='new_chat'),
-    path('load/<str:session_id>', views.load_chats, name='load'),
-    path('delete/<str:session_id>', views.delete_session, name='delete_session'),
-    path('delete_all_sessions', views.delete_all_sessions, name='delete_all_sessions'),
-    path('get_chatbot_response/', views.get_chatbot_response, name='get_chatbot_response'),
-    path('info/', views.info, name='info'),
-
-    ]
-
+    path("", views.racine, name="racine"),
+    path("connexion/", views.connexion, name="connexion"),
+    path("inscription/", views.inscription, name="inscription"),
+    path("deconnexion/", views.deconnexion, name="deconnexion"),
+    path("accueil/", views.accueil, name="accueil"),
+    path("reglages/", views.reglages, name="reglages"),
+    path("matiere/<slug:slug>/", views.matiere, name="matiere"),
+    path("matiere/<slug:slug>/nouvelle/", views.nouvelle_discussion, name="nouvelle_discussion"),
+    path("matiere/<slug:slug>/tout-supprimer/", views.supprimer_tout, name="supprimer_tout"),
+    path("discussion/<uuid:pk>/", views.discussion, name="discussion"),
+    path("discussion/<uuid:pk>/question/", views.question, name="question"),
+    path("discussion/<uuid:pk>/supprimer/", views.supprimer_discussion, name="supprimer_discussion"),
+    path("hors-ligne/", views.hors_ligne, name="hors_ligne"),
+    path("sw.js", views.service_worker, name="service_worker"),
+    path("manifest.webmanifest", views.manifeste, name="manifeste"),
+]

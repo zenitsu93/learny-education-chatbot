@@ -1,0 +1,44 @@
+{% extends "chat/app.html" %}
+{% block titre %}Accueil{% endblock %}
+{% block contenu %}
+<div class="page">
+  <header class="app-top">
+    <div class="hello">
+      <h1>Bonsoir {{ user.first_name|default:"" }}</h1>
+      <p class="muted">{% if derniere %}On reprend là où tu en étais ?{% else %}Choisis une matière pour poser ta première question.{% endif %}</p>
+    </div>
+    <p class="quota" id="quota" aria-live="polite"><c-icon name="chat" size="18" /><span><b>{{ restantes }}</b> question{{ restantes|pluralize }} sur {{ quota }} aujourd'hui</span></p>
+  </header>
+
+  {% if jours_bepc is not None %}
+  <section class="bepc" aria-label="Compte à rebours">
+    <b class="big">{{ jours_bepc }} jour{{ jours_bepc|pluralize }}</b>
+    <span>avant le BEPC. Une question par soir, c'est déjà une révision.</span>
+  </section>
+  {% endif %}
+
+  {% if derniere %}
+  <section class="resume" aria-labelledby="reprendre">
+    <span class="subj"><c-icon :name="derniere_matiere.icone" /></span>
+    <div class="min0">
+      <h2 id="reprendre" class="h-sm">Reprendre : {{ derniere.title }}</h2>
+      <p class="help">{{ derniere_matiere.nom }} · {{ derniere.updated|date:"l j F, H \h i" }}</p>
+    </div>
+    <c-button variant="primary" :href="derniere.get_absolute_url" icon="chev">Continuer</c-button>
+  </section>
+  {% endif %}
+
+  <section aria-labelledby="t-matieres" class="stack">
+    <h2 id="t-matieres">Tes matières</h2>
+    <div class="subjects">
+      {% for m, n in matieres %}
+      <a class="scard" href="{% url 'matiere' m.slug %}">
+        <span class="ic"><c-icon :name="m.icone" size="24" /></span>
+        <h3>{{ m.nom }}</h3>
+        <span class="meta">3e · {% if n %}{{ n }} discussion{{ n|pluralize }}{% else %}Aucune discussion{% endif %}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}
