@@ -1,0 +1,5 @@
+<c-vars tone="info" title="" />
+<div class="alert {{ tone }}" {% if tone == "bad" %}role="alert"{% endif %} {{ attrs }}>
+  <c-icon name="{% if tone == 'bad' %}err{% elif tone == 'ok' %}check{% elif tone == 'warn' %}warn{% else %}info{% endif %}" />
+  <div>{% if title %}<b>{{ title }}</b> {% endif %}{{ slot }}</div>
+</div>

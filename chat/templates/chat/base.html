@@ -1,0 +1,36 @@
+{% load static %}<!doctype html>
+<html lang="fr"
+  data-theme="{% if prefs.theme == 'clair' %}light{% elif prefs.theme == 'sombre' %}dark{% endif %}"
+  {% if prefs.reduire_animations %}data-reduce{% endif %}
+  {% if prefs.police_lecture %}data-lecture{% endif %}
+  {% if prefs.economie_donnees %}data-eco{% endif %}
+  style="--text-scale:{% if prefs %}calc({{ prefs.taille_texte }} / 100){% else %}1{% endif %}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block titre %}Learny{% endblock %} · Learny</title>
+  <meta name="description" content="Learny, ton répétiteur pour réviser le BEPC avec tes cours.">
+  <meta name="theme-color" content="#F3F6F2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E1D15" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="{% url 'manifeste' %}">
+  <link rel="icon" href="{% static 'learny/img/icone.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'learny/img/icone.svg' %}">
+  {% if not prefs.economie_donnees %}
+  <link rel="preload" href="{% static 'learny/fonts/atkinson-hyperlegible-latin-400-normal.woff2' %}" as="font" type="font/woff2" crossorigin>
+  {% endif %}
+  <link rel="stylesheet" href="{% static 'learny/css/learny.css' %}">
+  <script src="{% static 'learny/vendor/htmx-2.0.4.min.js' %}" defer></script>
+  <script src="{% static 'learny/js/learny.js' %}" defer></script>
+</head>
+<body class="{% block body_class %}{% endblock %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' data-sw="{% url 'service_worker' %}">
+  <a class="skip" href="#contenu">Aller au contenu</a>
+  {% block page %}{% endblock %}
+
+  <div class="toasts" id="toasts" role="status" aria-live="polite">
+    {% for m in messages %}
+    <div class="toast{% if m.level_tag == 'success' %} ok{% endif %}"><c-icon name="{% if m.level_tag == 'success' %}check{% else %}info{% endif %}" /><span>{{ m }}</span><button class="btn icon sm toast-close" type="button" aria-label="Fermer la notification"><c-icon name="x" /></button></div>
+    {% endfor %}
+  </div>
+  <div class="offline-bar" id="offline-bar" role="status" hidden><span class="dot" aria-hidden="true"></span>Pas de connexion. Tes questions partiront dès que le réseau revient.</div>
+</body>
+</html>
