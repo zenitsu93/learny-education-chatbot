@@ -1,240 +1,265 @@
-from django.shortcuts import redirect, render, get_object_or_404
-from django.http import JsonResponse
-import uuid
-import markdown
-from django.contrib.auth.models import User
-from django.contrib.auth.decorators import login_required
-from chat.models import Chat, Session
-from response import generate_response, make_title
+import datetime
 
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
-from django.views.decorators.csrf import csrf_protect
-from django.db import transaction
+from django.conf import settings
 from django.contrib import messages
-from .models import UserProfile
+from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
+from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_POST
+
+from . import ai, retrieval
+from .forms import ConnexionForm, InscriptionForm, ReglagesForm
+from .models import Chat, Session, UserProfile
+from .subjects import MATIERES
 
 
+def _matiere(slug):
+    m = MATIERES.get(slug)
+    if m is None:
+        raise Http404("Matière inconnue")
+    return m
 
 
-@csrf_protect
-def home(request):
+def _profil(user):
+    profil, _ = UserProfile.objects.get_or_create(user=user)
+    return profil
+
+
+def questions_restantes(user):
+    debut = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+    faites = Chat.objects.filter(session__user=user, created__gte=debut).count()
+    return max(0, settings.LEARNY_QUOTA_JOUR - faites)
+
+
+def jours_avant_bepc():
+    if not settings.LEARNY_DATE_BEPC:
+        return None
+    try:
+        date = datetime.date.fromisoformat(settings.LEARNY_DATE_BEPC)
+    except ValueError:
+        return None
+    jours = (date - timezone.localdate()).days
+    return jours if jours >= 0 else None
+
+
+# --- Comptes ------------------------------------------------------------------
+
+def racine(request):
+    return redirect("accueil" if request.user.is_authenticated else "connexion")
+
+
+def connexion(request):
     if request.user.is_authenticated:
-        return redirect('cours')
-    
-    if request.method == 'POST':
-        form_type = request.POST.get('form_type')
-        if form_type == 'login':
-            return handle_login(request)
-        elif form_type == 'register':
-            return handle_register(request)
-    
-    return render(request, 'home.html')
+        return redirect("accueil")
+    form = ConnexionForm(request, data=request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        login(request, form.user)
+        if not request.POST.get("rester"):
+            request.session.set_expiry(0)  # téléphone partagé : session fermée avec le navigateur
+        return redirect(request.GET.get("next") or "accueil")
+    return render(request, "chat/connexion.html", {"form": form, "mode": "connexion"})
 
-def handle_login(request):
-    email = request.POST.get('email')
-    password = request.POST.get('password')
 
-    user = authenticate(request, username=email, password=password)
-    if user is not None:
-        login(request, user)
-        return redirect('cours')
-    else:
-        return render(request, 'home.html', {'login_error': 'Email ou mot de passe incorrect'})
+def inscription(request):
+    if request.user.is_authenticated:
+        return redirect("accueil")
+    form = InscriptionForm(data=request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        user = form.save()
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        messages.success(request, f"Bienvenue {user.first_name}. Choisis une matière pour poser ta première question.")
+        return redirect("accueil")
+    return render(request, "chat/inscription.html", {"form": form, "mode": "inscription"})
 
-@transaction.atomic
-def handle_register(request):
-    nom = request.POST.get('nom')
-    prenom = request.POST.get('prenom')
-    email = request.POST.get('email')
-    telephone = request.POST.get('telephone')
-    date_naissance = request.POST.get('date_naissance')
-    genre = request.POST.get('genre')
-    niveau = request.POST.get('niveau')
-    ville = request.POST.get('ville')
-    password = request.POST.get('password')
 
-    # Validation de base
-    if not all([nom, prenom, email, telephone, date_naissance, genre, niveau, ville, password]):
-        return render(request, 'home.html', {'register_error': 'Tous les champs sont requis'})
-
-    try:
-        validate_email(email)
-    except ValidationError:
-        return render(request, 'home.html', {'register_error': 'Email invalide'})
-
-    if User.objects.filter(email=email).exists():
-        return render(request, 'home.html', {'register_error': 'Cet email est déjà utilisé'})
-
-    # Création de l'utilisateur
-    try:
-        user = User.objects.create_user(
-            username=email,
-            email=email,
-            password=password,
-            first_name=prenom,
-            last_name=nom
-        )
-
-        # Mise à jour du profil utilisateur
-        user.profile.telephone = telephone
-        user.profile.date_naissance = date_naissance
-        user.profile.genre = genre
-        user.profile.niveau = niveau
-        user.profile.ville = ville
-        user.profile.save()
-
-        login(request, user)
-        return redirect('cours')
-    except Exception as e:
-        return render(request, 'home.html', {'register_error': f"Erreur lors de l'inscription: {str(e)}"})
-
-@login_required
-def user_logout(request):
+@require_POST
+def deconnexion(request):
     logout(request)
-    return redirect('home')
+    messages.info(request, "Tu es déconnecté. Ce téléphone ne garde plus ton compte ouvert.")
+    return redirect("connexion")
 
 
-def generate_uuid():
-    return str(uuid.uuid4())
+# --- Accueil et matières ------------------------------------------------------
 
-def save_chat(request, session_id, message, response):
-    session = get_object_or_404(Session, id=session_id)
-    session.title =make_title(message)
-    session.save()
-    chat = Chat.objects.create(
-        session=session,
-        message=message,
-        response=response
+@login_required
+def accueil(request):
+    sessions = Session.objects.filter(user=request.user)
+    derniere = sessions.filter(chats__isnull=False).distinct().first()
+    compte = {s: 0 for s in MATIERES}
+    for s in sessions.filter(chats__isnull=False).distinct():
+        if s.cours_name in compte:
+            compte[s.cours_name] += 1
+    return render(
+        request,
+        "chat/accueil.html",
+        {
+            "matieres": [(m, compte[m.slug]) for m in MATIERES.values()],
+            "derniere": derniere,
+            "derniere_matiere": MATIERES.get(derniere.cours_name) if derniere else None,
+            "restantes": questions_restantes(request.user),
+            "quota": settings.LEARNY_QUOTA_JOUR,
+            "jours_bepc": jours_avant_bepc(),
+            "nav": "accueil",
+        },
     )
-    
-@login_required(login_url='home')
-def cours(request):
-    return render(request, 'cours.html')
-
-@login_required(login_url='home')
-def compte_view(request):
-    return render(request, 'compte.html')
-
-@login_required(login_url='home')
-def parametre_view(request):
-    return render(request, 'parametre.html')
-
-    return generate_response(message)
-
-@login_required(login_url='home')
-def chatbot(request, cours_name):
-    new_session = Session(
-            cours_name = cours_name,
-            title='Nouvelle discussion',
-            user=request.user,
-        )
-    new_session.save()
-    context = {
-        'cours_name': cours_name, 
-        'sessions' :Session.objects.filter(user=request.user, cours_name=cours_name).order_by('-created')[:5], 
-        'new_session':new_session}
-
-    return render(request, 'chat.html', context)
-
-
-def get_chatbot_response(request):
-    if request.method == 'POST':
-        user_message = request.POST.get('message')
-        session_id = request.POST.get('session_id')
-        cours_name = request.POST.get('cours_name')
-        classe = request.POST.get('classe')
-      
-        chatbot_response = generate_response(user_message, session_id, cours_name, classe)
-        save_chat(request, session_id, user_message, chatbot_response)
-        
-        chatbot_response = markdown.markdown(chatbot_response, extensions=['markdown.extensions.fenced_code'])
-        return JsonResponse({'response': chatbot_response})
-
-
-chats = []
-@login_required(login_url='home')
-def load_chats(request, session_id):
-    cours_name = request.GET.get('cours_name')
-    session = get_object_or_404(Session, id=session_id)
-    user_chats = Chat.objects.filter(session=session)
-    for chat in user_chats:
-        chats.append(chat)
-
-    context = {
-        'chats': user_chats, 
-        'cours_name': cours_name,
-        'new_session': session, 
-        'sessions' :Session.objects.filter(user=request.user, cours_name=cours_name).order_by('-created')[:5]}
-    
-    return render(request, 'chat.html', context, )
-
-
-
-@login_required(login_url='home')
-def delete_session(request, session_id):
-    cours_name = {'cours_name': request.GET.get('cours_name')}
-    session  = Session.objects.get(id=session_id)
-    session.delete()
-    return redirect('cours')
-
-@login_required(login_url='home')
-def new_chat(request):
-    cours_name = request.GET.get('cours_name')
-    new_session = Session(
-            cours_name = cours_name,
-            title='Nouvelle discussion',
-            user=request.user,
-        )
-    new_session.save()
-    context = {
-        'cours_name': cours_name, 
-        'sessions' :Session.objects.filter(user=request.user, cours_name=cours_name).order_by('-created')[:5], 
-        'new_session':new_session}
-
-    return render(request, 'chat.html', context)
-
-
-@login_required(login_url='home')
-def delete_all_sessions(request):
-    # Supprime toutes les sessions, ce qui supprimera également tous les chats associés
-    Session.objects.all().delete()
-    return redirect('cours') 
 
 
 @login_required
-def info(request):
-    if request.method == 'POST':
-        user = request.user
-        profile = user.profile
-
-        # Mise à jour des champs de l'utilisateur
-        user.first_name = request.POST.get('first_name')
-        user.last_name = request.POST.get('last_name')
-        # L'e-mail n'est plus mis à jour
-        user.save()
-
-        # Mise à jour des champs du profil
-        profile.telephone = request.POST.get('telephone')
-        profile.date_naissance = request.POST.get('date_naissance')
-        # Le niveau n'est plus mis à jour
-        profile.ville = request.POST.get('ville')
-        profile.save()
-
-        messages.success(request, 'Vos informations ont été mises à jour avec succès.')
-        return redirect('compte')
-
-    return render(request, 'compte.html', {
-        'user': request.user,
-        'profile': request.user.profile
-    })
+def matiere(request, slug):
+    _matiere(slug)
+    s = Session.objects.filter(user=request.user, cours_name=slug).first()
+    if s is None:
+        s = Session.objects.create(user=request.user, cours_name=slug, title="Nouvelle discussion")
+    return redirect("discussion", pk=s.pk)
 
 
-def process_file(request):
-    if request.method == 'POST' and request.FILES.get('file'):
-        uploaded_file = request.FILES['file']
-        # A venir
-        # Lire le contenu du fichier
-        
+@login_required
+@require_POST
+def nouvelle_discussion(request, slug):
+    _matiere(slug)
+    vide = Session.objects.filter(user=request.user, cours_name=slug, chats__isnull=True).first()
+    s = vide or Session.objects.create(user=request.user, cours_name=slug, title="Nouvelle discussion")
+    return redirect("discussion", pk=s.pk)
+
+
+@login_required
+@never_cache
+def discussion(request, pk):
+    s = get_object_or_404(Session, pk=pk, user=request.user)
+    m = _matiere(s.cours_name)
+    historique = Session.objects.filter(user=request.user, cours_name=s.cours_name, chats__isnull=False).distinct()
+    return render(
+        request,
+        "chat/discussion.html",
+        {
+            "s": s,
+            "m": m,
+            "matieres": MATIERES.values(),
+            "echanges": s.chats.all(),
+            "historique": historique,
+            "nb_historique": historique.count(),
+            "restantes": questions_restantes(request.user),
+            "nav": m.slug,
+        },
+    )
+
+
+@login_required
+@require_POST
+def question(request, pk):
+    s = get_object_or_404(Session, pk=pk, user=request.user)
+    m = _matiere(s.cours_name)
+    texte = (request.POST.get("question") or "").strip()[:2000]
+    htmx = request.headers.get("HX-Request") == "true"
+    ctx = {"s": s, "m": m, "question_texte": texte}
+
+    def rendu(template, status=200):
+        if htmx:
+            return render(request, template, ctx, status=status)
+        return redirect("discussion", pk=s.pk)
+
+    if "guide" in request.POST:
+        s.guide = request.POST.get("guide") == "1"
+
+    if not texte:
+        ctx["erreur"] = "vide"
+        return rendu("partials/erreur.html", 200)
+
+    if questions_restantes(request.user) <= 0:
+        ctx["erreur"] = "quota"
+        ctx["quota"] = settings.LEARNY_QUOTA_JOUR
+        return rendu("partials/erreur.html", 200)
+
+    historique = [(c.message, c.response) for c in s.chats.all()]
+    try:
+        extraits = retrieval.rechercher(m.slug, texte)
+    except Exception:
+        extraits = []  # la recherche ne doit jamais bloquer une réponse
+    try:
+        rep = ai.repondre(m, texte, historique, extraits, s.guide)
+    except ai.LearnyIndisponible:
+        ctx["erreur"] = "reseau"
+        return rendu("partials/erreur.html", 200)
+
+    chat = Chat.objects.create(session=s, message=texte, response=rep.texte, sources=rep.sources)
+    if s.title == "Nouvelle discussion":
+        s.title = ai.titre_depuis(texte)
+    s.save()
+    ctx.update({"c": chat, "restantes": questions_restantes(request.user), "nouveau": True})
+    return rendu("partials/echange.html")
+
+
+@login_required
+@require_POST
+def supprimer_discussion(request, pk):
+    s = get_object_or_404(Session, pk=pk, user=request.user)
+    slug = s.cours_name
+    s.delete()
+    messages.success(request, "Discussion supprimée.")
+    return redirect("matiere", slug=slug)
+
+
+@login_required
+@require_POST
+def supprimer_tout(request, slug):
+    m = _matiere(slug)
+    n, _ = Session.objects.filter(user=request.user, cours_name=slug).delete()
+    messages.success(request, f"Discussions de {m.nom} supprimées. Tes réglages sont gardés.")
+    return redirect("accueil")
+
+
+# --- Réglages -----------------------------------------------------------------
+
+@login_required
+def reglages(request):
+    profil = _profil(request.user)
+    form = ReglagesForm(data=request.POST or None, instance=profil)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Réglages enregistrés.")
+        return redirect("reglages")
+    return render(request, "chat/reglages.html", {"form": form, "nav": "reglages"})
+
+
+# --- PWA ----------------------------------------------------------------------
+
+def hors_ligne(request):
+    return render(request, "chat/hors_ligne.html")
+
+
+def service_worker(request):
+    resp = render(
+        request,
+        "chat/sw.js",
+        {
+            "version": "v1-2026-10-02",
+            "static_prefix": static(""),
+            "fichiers": [
+                reverse("hors_ligne"),
+                static("learny/css/learny.css"),
+                static("learny/js/learny.js"),
+                static("learny/vendor/htmx-2.0.4.min.js"),
+                static("learny/fonts/atkinson-hyperlegible-latin-400-normal.woff2"),
+                static("learny/fonts/atkinson-hyperlegible-latin-700-normal.woff2"),
+                static("learny/fonts/bricolage-grotesque-latin-700-normal.woff2"),
+                static("learny/img/icone.svg"),
+            ],
+        },
+        content_type="application/javascript",
+    )
+    resp["Service-Worker-Allowed"] = "/"
+    resp["Cache-Control"] = "no-cache"
+    return resp
+
+
+def manifeste(request):
+    return render(request, "chat/manifest.webmanifest", content_type="application/manifest+json")
+
+
+def erreur_404(request, exception=None):
+    return render(request, "chat/404.html", status=404)

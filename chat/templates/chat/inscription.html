@@ -1,0 +1,21 @@
+{% extends "chat/auth.html" %}
+{% block titre %}Créer un compte{% endblock %}
+{% block formulaire %}
+<h1>Crée ton compte</h1>
+<p class="muted">Trois informations suffisent. Learny est pour l'instant réservé à la 3e.</p>
+<form method="post" novalidate class="stack">
+  {% csrf_token %}
+  {% if form.errors %}
+  <c-alert tone="bad" title="Il reste {{ form.errors|length }} champ{{ form.errors|length|pluralize }} à corriger.">Les explications sont sous chaque champ.</c-alert>
+  {% endif %}
+  <c-field :field="form.prenom" autocomplete="given-name" icon="user" />
+  <c-field :field="form.telephone" autocomplete="tel" inputmode="tel" icon="phone" />
+  <c-field :field="form.password" autocomplete="new-password" icon="lock">
+    <ul class="rules" data-rules-for="{{ form.password.id_for_label }}">
+      <li data-r="len">8 caractères ou plus</li>
+      <li data-r="num">Pas seulement des chiffres</li>
+    </ul>
+  </c-field>
+  <c-button variant="primary" size="lg" type="submit" block="1">Créer mon compte</c-button>
+</form>
+{% endblock %}

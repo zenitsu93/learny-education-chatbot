@@ -1,0 +1,14 @@
+{% load static %}{
+  "name": "Learny",
+  "short_name": "Learny",
+  "description": "Ton répétiteur pour réviser le BEPC avec tes cours.",
+  "lang": "fr",
+  "start_url": "{% url 'accueil' %}",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F3F6F2",
+  "theme_color": "#146B43",
+  "icons": [
+    {"src": "{% static 'learny/img/icone.svg' %}", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
