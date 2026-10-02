@@ -876,14 +876,15 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke
   <div class="sec">
     <header><h2 class="h2">Trois directions</h2><p>Chacune est un design system complet : couleurs claires et sombres, typographie, espacements, formes, mouvement, plus de 40 composants avec tous leurs états, six écrans et la copy. Ouvre l'onglet Concepts pour les manipuler.</p></header>
     <div class="grid3">
-      <div class="box stack reco"><span class="pill">A · Recommandé</span><h3 class="h3">Tableau</h3><p class="muted">La salle de classe rassurante : ardoise verte, craie jaune pour le focus, papier quadrillé. Police Atkinson Hyperlegible, conçue pour les lecteurs malvoyants. C'est la plus proche de l'existant et la moins risquée.</p></div>
+      <div class="box stack reco"><span class="pill">A · Retenu</span><h3 class="h3">Tableau</h3><p class="muted">La salle de classe rassurante : ardoise verte, craie jaune pour le focus, papier quadrillé. Police Atkinson Hyperlegible, conçue pour les lecteurs malvoyants. C'est la plus proche de l'existant et la moins risquée.</p></div>
       <div class="box stack"><span class="pill">B</span><h3 class="h3">Faso</h3><p class="muted">L'énergie du Faso Dan Fani : bandes tissées indigo, safran, vert et rouge, boutons tactiles à ombre dure, séries de révision. Pensé pour motiver les 6e–4e.</p></div>
       <div class="box stack"><span class="pill">C</span><h3 class="h3">Clair</h3><p class="muted">Le calme de la lecture : bleu ciel, filets fins, aucun décor, interligne 1,7, colonne de 70 caractères, mouvements minimes. Le plus léger en données et le plus sûr pour la dyslexie.</p></div>
     </div>
   </div>
 
   <div class="sec">
-    <header><h2 class="h2">Ma recommandation</h2></header>
+    <header><h2 class="h2">Décision</h2></header>
+    <p class="note"><b>Le 2 octobre 2026, le concept A « Tableau » a été retenu.</b> Les concepts B et C restent documentés pour référence.</p>
     <div class="box stack">
       <p><b>Partir du concept A (Tableau)</b> comme thème par défaut et livrer le concept C sous forme de <b>mode « Lecture calme »</b> dans les réglages d'accessibilité. Les deux partagent les mêmes composants et la même structure de tokens, donc ce second thème ne coûte que ses valeurs. Le concept B reste une piste si les tests en classe montrent que la motivation compte plus que la sobriété.</p>
       <p class="muted">Côté technique : on garde Django et ses templates, avec htmx et Alpine.js, en PWA, ce qui tient sur o2switch et en 2G. L'accessibilité est garantie par des composants de template uniques (django-cotton), des tokens générés par Style Dictionary et des tests axe automatiques. Le détail est dans l'onglet Technos.</p>
@@ -1354,7 +1355,7 @@ AC = 6 × 4 ÷ 3 = 8 cm</code></pre>
       <tr><td>Lien avec l'existant</td><td>Fort : même vert, même ton</td><td>Moyen : nouvelle palette</td><td>Fort : même bleu ciel</td></tr>
       <tr><td>Âge cible</td><td>6e à 3e</td><td>6e à 4e surtout</td><td>3e et lycée</td></tr>
       <tr><td>Effort de réalisation</td><td>Moyen</td><td>Élevé (motifs, gamification)</td><td>Faible</td></tr>
-      <tr><td>Verdict</td><td><b>Thème par défaut</b></td><td>À tester en classe</td><td><b>Mode « Lecture calme »</b></td></tr>
+      <tr><td>Verdict</td><td><b>Retenu</b></td><td>À tester en classe</td><td><b>Mode « Lecture calme »</b></td></tr>
     </tbody></table></div>
   </div>
   <div class="sec">

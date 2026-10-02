@@ -2,6 +2,8 @@
 
 Audit d'accessibilité du front actuel et trois directions complètes pour la refonte de Learny.
 
+**Décision du 2 octobre 2026 : le concept A « Tableau » est retenu.**
+
 Ouvrir [`index.html`](index.html) dans un navigateur. La page contient :
 
 - l'audit WCAG 2.2 AA du code actuel : 19 problèmes, dont 5 critiques, avec fichier, ligne et correction, et les contrastes mesurés ;
