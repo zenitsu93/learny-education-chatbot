@@ -1,0 +1,21 @@
+{# Champ de formulaire accessible : étiquette visible liée, aide et erreur reliées par aria-describedby. #}
+<c-vars field autocomplete="" inputmode="" icon="" trail="" />
+<div class="field">
+  <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="req" aria-hidden="true"> *</span>{% endif %}</label>
+  <div class="ctl">
+    {% if icon %}<span class="lead"><c-icon :name="icon" /></span>{% endif %}
+    <input class="input{% if icon %} has-lead{% endif %}{% if trail %} has-trail{% endif %}"
+      id="{{ field.id_for_label }}" name="{{ field.html_name }}"
+      type="{% if field.field.widget.input_type %}{{ field.field.widget.input_type }}{% else %}text{% endif %}"
+      {% if field.value and field.field.widget.input_type != "password" %}value="{{ field.value }}"{% endif %}
+      {% if field.field.required %}required aria-required="true"{% endif %}
+      {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %}
+      {% if inputmode %}inputmode="{{ inputmode }}"{% endif %}
+      {% if field.errors %}aria-invalid="true"{% endif %}
+      aria-describedby="{% if field.help_text %}{{ field.id_for_label }}-aide {% endif %}{% if field.errors %}{{ field.id_for_label }}-err{% endif %}">
+    {% if trail %}<span class="trail">{{ trail }}</span>{% endif %}
+  </div>
+  {% if field.help_text %}<p class="help" id="{{ field.id_for_label }}-aide">{{ field.help_text }}</p>{% endif %}
+  {% if field.errors %}<p class="err" id="{{ field.id_for_label }}-err"><c-icon name="err" size="16" /><span>{{ field.errors|join:" " }}</span></p>{% endif %}
+  {{ slot }}
+</div>

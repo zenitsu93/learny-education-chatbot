@@ -1,0 +1,10 @@
+{% extends "chat/base.html" %}
+{% block titre %}Hors connexion{% endblock %}
+{% block page %}
+<main class="page-err" id="contenu">
+  <span class="ill"><c-icon name="offline" size="32" /></span>
+  <h1>Tu es hors connexion</h1>
+  <p class="muted">Les pages déjà ouvertes restent lisibles. Reviens ici quand le réseau revient.</p>
+  <c-button variant="secondary" icon="retry" onclick="location.reload()">Réessayer</c-button>
+</main>
+{% endblock %}

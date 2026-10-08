@@ -1,0 +1,23 @@
+{% extends "chat/base.html" %}
+{% block page %}
+<div class="auth">
+  <div class="auth-side">
+    <span class="logo"><span class="mk"><c-icon name="learny" /></span>Learny</span>
+    <div class="auth-pitch">
+      <p class="auth-hero">Révise avec <mark>tes</mark> cours, à ton rythme.</p>
+      <p>Learny t'explique les maths, la physique-chimie et les SVT de 3e, étape par étape, pour préparer le BEPC.</p>
+    </div>
+    <p class="help-inv">Programme officiel du Burkina Faso</p>
+  </div>
+  <main class="auth-main" id="contenu" tabindex="-1">
+    <div class="auth-form">
+      <div class="seg2" role="navigation" aria-label="Connexion ou inscription">
+        <a href="{% url 'connexion' %}" {% if mode == 'connexion' %}aria-current="page"{% endif %}>Se connecter</a>
+        <a href="{% url 'inscription' %}" {% if mode == 'inscription' %}aria-current="page"{% endif %}>Créer un compte</a>
+      </div>
+      {% block formulaire %}{% endblock %}
+      <p class="help center">Un souci ? Écris-nous sur WhatsApp au <span class="mono">{{ aide_whatsapp }}</span>.</p>
+    </div>
+  </main>
+</div>
+{% endblock %}

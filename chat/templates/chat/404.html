@@ -1,0 +1,10 @@
+{% extends "chat/base.html" %}
+{% block titre %}Page introuvable{% endblock %}
+{% block page %}
+<main class="page-err" id="contenu">
+  <span class="code" aria-hidden="true">404</span>
+  <h1>Cette page n'existe pas</h1>
+  <p class="muted">Le lien est peut-être ancien. Retourne à l'accueil pour retrouver tes cours.</p>
+  <c-button variant="primary" href="/">Retour à l'accueil</c-button>
+</main>
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends "chat/app.html" %}
+{% load learny %}
+{% block titre %}{{ s.title }} · {{ m.nom }}{% endblock %}
+{% block body_class %}page-chat{% endblock %}
+{% block side_extra %}
+<section class="hist" aria-labelledby="t-hist">
+  <div class="hist-head">
+    <h2 id="t-hist" class="cx-lab">Discussions de {{ m.nom|lower }}</h2>
+  </div>
+  <form method="post" action="{% url 'nouvelle_discussion' m.slug %}">{% csrf_token %}<c-button variant="primary" icon="plus" type="submit" block="1">Nouvelle discussion</c-button></form>
+  <ul class="hist-list">
+    {% for h in historique %}
+    <li><a class="nav-it" href="{% url 'discussion' h.pk %}" {% if h.pk == s.pk %}aria-current="page"{% endif %}><span class="ellipsis">{{ h.title }}</span></a></li>
+    {% empty %}
+    <li class="help">Tes discussions s'afficheront ici.</li>
+    {% endfor %}
+  </ul>
+  {% if nb_historique %}
+  <c-button variant="ghost" size="sm" icon="trash" data-dialog-open="dlg-tout">Tout supprimer</c-button>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block contenu %}
+<div class="chat">
+  <header class="chat-head">
+    <span class="subj"><c-icon :name="m.icone" /></span>
+    <div class="t">
+      <h1>{{ s.title }}</h1>
+      <small>{{ m.nom }} · 3e</small>
+    </div>
+    <form method="post" action="{% url 'nouvelle_discussion' m.slug %}">{% csrf_token %}
+      <span class="tip-wrap"><c-button variant="ghost" icon="plus" label="Nouvelle discussion" type="submit" aria-describedby="tip-new" /><span class="tip" role="tooltip" id="tip-new">Nouvelle discussion</span></span>
+    </form>
+    {% if echanges %}
+    <span class="tip-wrap"><c-button variant="ghost" icon="trash" label="Supprimer cette discussion" data-dialog-open="dlg-une" aria-describedby="tip-del" /><span class="tip" role="tooltip" id="tip-del">Supprimer cette discussion</span></span>
+    {% endif %}
+  </header>
+
+  <div class="thread" id="thread" role="log" aria-label="Conversation avec Learny" tabindex="0">
+    {% for c in echanges %}
+      {% include "partials/echange.html" %}
+    {% empty %}
+    <div class="empty" id="vide">
+      <span class="ill"><c-icon name="chat" size="32" /></span>
+      <h2 class="h-sm">Pose ta première question de {{ m.nom|lower }}</h2>
+      <p>Écris ou dicte ta question. Learny répond étape par étape et cite la page du cours quand il la trouve.</p>
+      <ul class="suggest" aria-label="Exemples de questions">
+        {% if m.slug == "maths" %}
+        <li><button type="button" class="chip" data-suggest>Comment utiliser le théorème de Thalès ?</button></li>
+        <li><button type="button" class="chip" data-suggest>Résoudre 3x − 5 = 2x + 4</button></li>
+        {% elif m.slug == "physique-chimie" %}
+        <li><button type="button" class="chip" data-suggest>C'est quoi la loi d'Ohm ?</button></li>
+        <li><button type="button" class="chip" data-suggest>Différence entre masse et poids</button></li>
+        {% else %}
+        <li><button type="button" class="chip" data-suggest>C'est quoi un gène ?</button></li>
+        <li><button type="button" class="chip" data-suggest>Comment se transmet le paludisme ?</button></li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+
+  <form class="composer" id="composer" method="post" action="{% url 'question' s.pk %}"
+        hx-post="{% url 'question' s.pk %}" hx-target="#thread" hx-swap="beforeend" hx-disabled-elt="find .send">
+    {% csrf_token %}
+    <div class="listening" hidden><span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>Je t'écoute. Touche à nouveau le micro pour arrêter.</span></div>
+    <label class="sr" for="q">Ta question</label>
+    <div class="comp-box">
+      <textarea id="q" name="question" rows="1" maxlength="2000" required placeholder="Ex. : comment trouver AC avec Thalès ?" enterkeyhint="send"></textarea>
+      <c-button variant="secondary" icon="mic" label="Poser ta question à voix haute" class="mic round" aria-pressed="false" />
+      <c-button variant="primary" icon="send" label="Envoyer la question" type="submit" class="send round" />
+    </div>
+    <div class="comp-meta">
+      <label class="check sm"><input type="hidden" name="guide" value="0"><input type="checkbox" name="guide" value="1" {% if s.guide %}checked{% endif %}> Guide-moi pas à pas</label>
+      <span id="quota" aria-live="polite">{{ restantes }} question{{ restantes|pluralize }} restante{{ restantes|pluralize }} aujourd'hui</span>
+    </div>
+    <p class="help">Learny peut se tromper. Vérifie avec ton cours ou ton professeur.</p>
+  </form>
+  <div class="sr" id="annonce" role="status" aria-live="polite"></div>
+</div>
+
+<dialog class="dlg" id="dlg-une" aria-labelledby="dlg-une-t" aria-describedby="dlg-une-d">
+  <form method="post" action="{% url 'supprimer_discussion' s.pk %}">{% csrf_token %}
+    <div class="dlg-b"><h2 id="dlg-une-t">Supprimer cette discussion ?</h2><p id="dlg-une-d">« {{ s.title }} » disparaîtra de ton historique.</p></div>
+    <div class="dlg-f"><c-button variant="secondary" data-dialog-close autofocus>Garder</c-button><c-button variant="danger" type="submit">Supprimer</c-button></div>
+  </form>
+</dialog>
+<dialog class="dlg" id="dlg-tout" aria-labelledby="dlg-tout-t" aria-describedby="dlg-tout-d">
+  <form method="post" action="{% url 'supprimer_tout' m.slug %}">{% csrf_token %}
+    <div class="dlg-b"><h2 id="dlg-tout-t">Supprimer tes {{ nb_historique }} discussion{{ nb_historique|pluralize }} de {{ m.nom|lower }} ?</h2><p id="dlg-tout-d">Elles disparaîtront de ton historique. Tes réglages sont gardés.</p></div>
+    <div class="dlg-f"><c-button variant="secondary" data-dialog-close autofocus>Garder</c-button><c-button variant="danger" type="submit">Supprimer {% if nb_historique > 1 %}les {{ nb_historique }}{% else %}la discussion{% endif %}</c-button></div>
+  </form>
+</dialog>
+{% endblock %}

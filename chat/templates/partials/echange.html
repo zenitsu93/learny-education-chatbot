@@ -1,0 +1,19 @@
+{% load learny %}<div class="msg user"><span class="sr">Toi :</span><div class="bubble">{{ c.message|linebreaksbr }}</div></div>
+<div class="msg bot"{% if nouveau %} data-nouveau{% endif %}>
+  <span class="bot-av" aria-hidden="true"><c-icon name="learny" /></span>
+  <div class="bubble"><span class="sr">Learny :</span>{{ c.response|markdown }}</div>
+  {% if c.sources %}
+  <ul class="sources" aria-label="Sources">
+    {% for src in c.sources %}<li class="src"><span class="n">{{ forloop.counter }}</span>{{ src.source }}{% if src.page %} · p. {{ src.page }}{% endif %}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  <div class="msg-tools">
+    <button class="tool" type="button" data-ecouter aria-pressed="false"><c-icon name="speak" size="16" />Écouter</button>
+    <button class="tool" type="button" data-copier><c-icon name="copy" size="16" /><span>Copier</span></button>
+  </div>
+</div>
+{% if nouveau %}
+<div class="sr" id="annonce" hx-swap-oob="true" role="status" aria-live="polite">Learny a répondu.</div>
+<span id="quota" hx-swap-oob="true" aria-live="polite">{{ restantes }} question{{ restantes|pluralize }} restante{{ restantes|pluralize }} aujourd'hui</span>
+<div id="vide" hx-swap-oob="delete"></div>
+{% endif %}

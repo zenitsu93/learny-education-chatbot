@@ -1,0 +1,20 @@
+{% if erreur != "vide" %}
+<div class="msg user"><span class="sr">Toi :</span><div class="bubble">{{ question_texte|linebreaksbr }}</div></div>
+{% endif %}
+<div class="msg bot">
+  <span class="bot-av" aria-hidden="true"><c-icon name="learny" /></span>
+  <div class="alert-bubble" role="alert">
+    {% if erreur == "quota" %}
+      <p><b>Tu as posé tes {{ quota }} questions du jour.</b> Le compteur repart à zéro demain matin. En attendant, relis tes discussions : c'est aussi une révision.</p>
+    {% elif erreur == "vide" %}
+      <p><b>Ta question est vide.</b> Écris ou dicte ta question, puis envoie-la.</p>
+    {% else %}
+      <p><b>La réponse n'est pas arrivée.</b> La connexion a coupé, mais ta question est gardée.</p>
+      <form hx-post="{% url 'question' s.pk %}" hx-target="#thread" hx-swap="beforeend" data-retry>
+        <input type="hidden" name="question" value="{{ question_texte }}">
+        <c-button variant="secondary" size="sm" icon="retry" type="submit">Renvoyer la question</c-button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+<div class="sr" id="annonce" hx-swap-oob="true" role="status" aria-live="polite">{% if erreur == "quota" %}Quota du jour atteint.{% elif erreur == "vide" %}Question vide.{% else %}La réponse n'est pas arrivée.{% endif %}</div>
