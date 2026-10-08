@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/cover-b-appli.svg" alt="Learny : révise le BEPC, une question à la fois. Un répétiteur IA pour les élèves de 3e du Burkina Faso." width="100%">
+  <img src="docs/assets/cover-a-ardoise.svg" alt="Learny, le répétiteur du BEPC dans la poche des élèves de 3e : maths, physique-chimie et SVT." width="100%">
 </p>
 
 <p align="center">
