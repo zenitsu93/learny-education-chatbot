@@ -181,7 +181,7 @@ Le détail de chaque étape et ses critères de succès sont dans [`docs/concept
 <h2 id="credits">🙏 Crédits</h2>
 
 - Polices **Atkinson Hyperlegible** (© Braille Institute of America) et **Bricolage Grotesque**, sous licence [SIL Open Font License 1.1](https://openfontlicense.org).
-- Covers et bandeaux générés par [`docs/assets/generer_bannieres.py`](docs/assets/generer_bannieres.py) ; deux autres covers sont disponibles dans [`docs/assets`](docs/assets/).
+- Cover et bandeaux générés par [`docs/assets/generer_bannieres.py`](docs/assets/generer_bannieres.py).
 
 <p align="center">
   <img src="chat/static/learny/img/icone.svg" alt="" width="48"><br>
