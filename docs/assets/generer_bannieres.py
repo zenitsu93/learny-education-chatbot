@@ -1,4 +1,4 @@
-"""Génère les covers GitHub (1280x640) et les bandeaux de section du README, aux couleurs du concept Tableau.
+"""Génère la cover GitHub (1280x640) et les bandeaux de section du README, aux couleurs du concept Tableau.
 
 Les polices de l'appli sont sous-ensemblées et incluses dans chaque SVG, pour un rendu identique sur GitHub.
 Usage : python docs/assets/generer_bannieres.py . docs/assets  (demande fonttools et brotli)
@@ -86,12 +86,6 @@ BOARD_DEFS = """<radialGradient id="tache1" cx="0.3" cy="0.35" r="0.6"><stop off
 <pattern id="grille" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#FFFFFF" stroke-opacity=".045"/></pattern>"""
 
 
-def h2o(x, y, size, fill, extra=""):
-    small = round(size * 0.62)
-    return (f'<text x="{x}" y="{y}" font-size="{size}" class="b" fill="{fill}" {extra}>2 H<tspan dy="{size*0.22:.0f}" font-size="{small}">2</tspan>'
-            f'<tspan dy="{-size*0.22:.0f}"> + O</tspan><tspan dy="{size*0.22:.0f}" font-size="{small}">2</tspan></text>')
-
-
 # ---------------------------------------------------------------- A · Ardoise
 def cover_a():
     W, H = 1280, 640
@@ -141,108 +135,7 @@ def cover_a():
     write("cover-a-ardoise", "Learny, le répétiteur du BEPC : cover version ardoise", "".join(b + g))
 
 
-# ---------------------------------------------------------------- B · Appli
-def bubble(x, y, w, lines, user):
-    fill, ink = ("#146B43", "#FFFFFF") if user else ("#FFFFFF", "#12241A")
-    h = 26 + 30 * len(lines)
-    r = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="18" fill="{fill}"'
-         + ('' if user else ' stroke="#C6D3CA"') + '/>']
-    for i, (txt, cls) in enumerate(lines):
-        r.append(f'<text x="{x+18}" y="{y+40+30*i}" font-size="21" class="{cls}" fill="{ink}">{txt}</text>')
-    return "".join(r), h
-
-
-def cover_b():
-    W, H = 1280, 640
-    b = [f"<defs>{BOARD_DEFS}"
-         '<clipPath id="ecran"><rect x="842" y="96" width="316" height="600" rx="30"/></clipPath>'
-         '<filter id="ombre" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000" flood-opacity=".35"/></filter>'
-         "</defs>",
-         f'<rect width="{W}" height="{H}" fill="#F3F6F2"/>',
-         f'<rect x="700" y="0" width="{W-700}" height="{H}" fill="url(#ardoise)"/>',
-         f'<rect x="700" y="0" width="{W-700}" height="{H}" fill="url(#grille)"/>',
-         f'<rect x="700" y="0" width="{W-700}" height="{H}" fill="url(#tache1)"/>',
-         '<path d="M700 0 V640" stroke="#F2C14E" stroke-width="8"/>',
-         ]
-    # texte à gauche
-    b.append(robot(80, 82, 84))
-    b.append('<text x="184" y="146" font-size="72" class="d" fill="#12241A" letter-spacing="-2">Learny</text>')
-    b.append('<text x="80" y="258" font-size="48" class="d" fill="#12241A" letter-spacing="-1">Révise le BEPC,</text>')
-    b.append('<text x="80" y="316" font-size="48" class="d" fill="#146B43" letter-spacing="-1">une question à la fois.</text>')
-    b.append('<text x="80" y="376" font-size="24" class="b" fill="#465A4E">Un répétiteur IA pour les élèves de 3e du Burkina Faso,</text>')
-    b.append('<text x="80" y="408" font-size="24" class="b" fill="#465A4E">appuyé sur les cours officiels, avec la page citée.</text>')
-    y = 460
-    for ic, label in [("book", "Maths, physique-chimie et SVT"), ("mic", "Question écrite ou dictée"), ("offline", "Installable, pensé pour la 2G")]:
-        b.append(f'<rect x="80" y="{y}" width="40" height="40" rx="10" fill="#DDEFE3"/>')
-        b.append(icon(ic, 88, y + 8, 24, "#146B43", 2.2))
-        b.append(f'<text x="136" y="{y+28}" font-size="22" class="bb" fill="#12241A">{label}</text>')
-        y += 52
-    # téléphone
-    ph = ['<g filter="url(#ombre)"><rect x="826" y="80" width="348" height="640" rx="44" fill="#0B1A12"/></g>',
-          '<g clip-path="url(#ecran)">',
-          '<rect x="842" y="96" width="316" height="600" fill="#F3F6F2"/>',
-          '<rect x="842" y="96" width="316" height="78" fill="#FFFFFF"/>',
-          '<path d="M842 174h316" stroke="#C6D3CA"/>',
-          robot(862, 116, 40),
-          '<text x="914" y="134" font-size="19" class="bb" fill="#12241A">Mathématiques</text>',
-          '<text x="914" y="158" font-size="15" class="b" fill="#465A4E">Mode Guide-moi</text>',
-          '<rect x="1072" y="122" width="68" height="28" rx="14" fill="#F2C14E"/>',
-          '<text x="1106" y="142" font-size="15" class="bb" fill="#12241A" text-anchor="middle">BEPC</text>']
-    s1, h1 = bubble(940, 198, 202, [("Résous x² + 3x = 0", "b")], True)
-    s2, h2 = bubble(858, 198 + h1 + 14, 264, [("1. Factorise par x :", "bb"), ("x(x + 3) = 0", "b"), ("2. Un produit est nul si...", "b"), ("à toi : quels facteurs ?", "b")], False)
-    y3 = 198 + h1 + 14 + h2 + 8
-    ph += [s1, s2,
-           f'<rect x="858" y="{y3}" width="150" height="30" rx="15" fill="#DDEFE3"/>',
-           icon("book", 868, y3 + 6, 18, "#146B43", 2.2),
-           f'<text x="892" y="{y3+21}" font-size="15" class="bb" fill="#146B43">Cours, page 42</text>',
-           '<rect x="842" y="516" width="316" height="190" fill="#FFFFFF"/>',
-           '<path d="M842 516h316" stroke="#C6D3CA"/>',
-           '<rect x="858" y="532" width="230" height="48" rx="24" fill="#F3F6F2" stroke="#6F8A7A" stroke-width="1.5"/>',
-           '<text x="878" y="563" font-size="17" class="b" fill="#465A4E">x = 0 ou x = -3 ?</text>',
-           '<circle cx="1120" cy="556" r="24" fill="#146B43"/>',
-           icon("send", 1108, 544, 24, "#FFFFFF", 2.4),
-           '</g>']
-    b += ph
-    # craie sur l'ardoise
-    b.append('<g opacity=".5" fill="#EDF3EE">'
-             '<text x="730" y="70" font-size="26" class="b" transform="rotate(-8 730 70)">a² + b² = c²</text>'
-             '<text x="724" y="600" font-size="24" class="b" transform="rotate(-6 724 600)">y = 2x + 1</text></g>')
-    write("cover-b-appli", "Learny, révise le BEPC une question à la fois : cover version appli", "".join(b))
-
-
-# ---------------------------------------------------------------- C · Affiche
-def cover_c():
-    W, H = 1280, 640
-    b = [f"<defs>{BOARD_DEFS}"
-         '<pattern id="bandes" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'
-         '<rect width="14" height="28" fill="#F2C14E"/></pattern></defs>',
-         f'<rect width="{W}" height="{H}" fill="#0E3F27"/>',
-         f'<rect width="{W}" height="{H}" fill="url(#grille)"/>',
-         f'<rect width="{W}" height="{H}" fill="url(#tache1)"/>',
-         f'<rect x="0" y="0" width="{W}" height="10" fill="#F2C14E"/>',
-         f'<rect x="0" y="{H-10}" width="{W}" height="10" fill="#F2C14E"/>',
-         ]
-    b.append(robot(80, 74, 76, body="#F2C14E", line="#0E3F27", accent="#0E3F27"))
-    b.append('<text x="172" y="128" font-size="40" class="d" fill="#F3F6F2">Learny</text>')
-    b.append('<text x="76" y="330" font-size="200" class="d" fill="#F2C14E" letter-spacing="-8">BEPC</text>')
-    b.append('<text x="80" y="402" font-size="52" class="d" fill="#F3F6F2" letter-spacing="-1">prêt, matière par matière.</text>')
-    b.append('<text x="80" y="460" font-size="26" class="b" fill="#C9DCCF">Le répétiteur IA des élèves de 3e au Burkina Faso.</text>')
-    b.append('<text x="80" y="560" font-size="22" class="bb" fill="#F2C14E" letter-spacing="2">DJANGO · HTMX · PWA · GEMINI</text>')
-    # tuiles matières
-    y = 110
-    for ic, nom, note in [("math", "Mathématiques", "Équations, Thalès, fonctions"),
-                          ("flask", "Physique-chimie", "Électricité, réactions, forces"),
-                          ("leaf", "SVT", "Nutrition, reproduction, sol")]:
-        b.append(f'<rect x="800" y="{y}" width="400" height="124" rx="22" fill="#F3F6F2"/>')
-        b.append(f'<rect x="824" y="{y+26}" width="72" height="72" rx="18" fill="#146B43"/>')
-        b.append(icon(ic, 842, y + 44, 36, "#F2C14E", 2.2))
-        b.append(f'<text x="916" y="{y+56}" font-size="30" class="d" fill="#12241A">{nom}</text>')
-        b.append(f'<text x="916" y="{y+92}" font-size="20" class="b" fill="#465A4E">{note}</text>')
-        y += 146
-    write("cover-c-affiche", "Learny, BEPC prêt matière par matière : cover version affiche", "".join(b))
-
-
-cover_a(); cover_b(); cover_c()
+cover_a()
 
 
 # ---------------------------------------------------------------- Bandeaux de section
