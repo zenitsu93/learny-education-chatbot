@@ -1,0 +1,19 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git config user.name zenitsu93 && git config user.email 167626485+zenitsu93@users.noreply.github.com"
+          }
+        ]
+      }
+    ]
+  }
+}
