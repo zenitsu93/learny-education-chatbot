@@ -13,6 +13,8 @@ from .subjects import Matiere, consigne_systeme
 log = logging.getLogger(__name__)
 
 HISTORIQUE_MAX = 6  # derniers échanges renvoyés au modèle
+PHOTO_MAX = 8 * 1024 * 1024  # le téléphone réduit la photo avant l'envoi : ceci ne sert que de garde-fou
+ILLISIBLE = "ILLISIBLE"
 
 
 class LearnyIndisponible(Exception):
@@ -99,6 +101,57 @@ def repondre(matiere: Matiere, question: str, historique, extraits, guide: bool)
     if not texte:
         raise LearnyIndisponible("réponse vide")
     return Reponse(texte=texte, sources=sources)
+
+
+def type_image(debut: bytes):
+    """Type MIME d'une photo d'après ses premiers octets, ou None si Gemini ne sait pas la lire."""
+    if debut.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if debut.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if debut[:4] == b"RIFF" and debut[8:12] == b"WEBP":
+        return "image/webp"
+    if debut[4:8] == b"ftyp" and debut[8:12] in {b"heic", b"heix", b"mif1", b"msf1"}:
+        return "image/heic"
+    return None
+
+
+def lire_enonce(matiere: Matiere, image: bytes, mime: str) -> str:
+    """Recopie l'énoncé d'un exercice photographié. Chaîne vide si la photo est illisible.
+
+    L'élève relit et corrige ce texte avant de l'envoyer : la question enregistrée reste du texte,
+    et la photo n'est gardée nulle part.
+    """
+    c = client()
+    if c is None:
+        return (
+            "Mode démonstration : sans clé Gemini, Learny ne lit pas la photo. "
+            "Écris ici l'énoncé de ton exercice, puis envoie-le."
+        )
+
+    from google.genai import types
+
+    consigne = (
+        f"Voici la photo d'un exercice de {matiere.nom.lower()} de 3e (cahier, livre ou tableau). "
+        "Recopie fidèlement l'énoncé, sans le résoudre et sans rien ajouter. Garde la numérotation des questions. "
+        "Écris les formules en texte lisible (AB = 6 cm, x² + 3x = 0), sans LaTeX. "
+        "S'il y a une figure, décris-la en une phrase entre crochets avec ses valeurs. "
+        f"Si tu ne peux pas lire l'énoncé, réponds seulement {ILLISIBLE}."
+    )
+    try:
+        res = c.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=[types.Part.from_bytes(data=image, mime_type=mime), consigne],
+            config=types.GenerateContentConfig(temperature=0, max_output_tokens=2048),
+        )
+    except Exception as exc:
+        log.warning("Gemini indisponible (photo) : %s", exc)
+        raise LearnyIndisponible from exc
+
+    texte = (res.text or "").strip()
+    if texte.rstrip(" .").upper() == ILLISIBLE:
+        return ""
+    return texte[:2000]
 
 
 def titre_depuis(question: str) -> str:

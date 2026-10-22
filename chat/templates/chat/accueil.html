@@ -17,6 +17,20 @@
   </section>
   {% endif %}
 
+  <section class="resume seance" aria-labelledby="t-seance">
+    <span class="subj"><c-icon :name="seance.matiere.icone" /></span>
+    <div class="min0">
+      <p class="cx-lab">{% if seance.faite %}Séance du jour faite{% else %}Ta séance du jour · 10 min{% endif %}</p>
+      <h2 id="t-seance" class="h-sm">{{ seance.chapitre }}</h2>
+      <p class="help">{{ seance.matiere.nom }} · {% if seance.faite %}Bravo. La prochaine séance t'attend demain.{% else %}Un exercice type BEPC, Learny te guide pas à pas.{% endif %}</p>
+    </div>
+    {% if seance.faite %}
+    <c-button variant="secondary" :href="seance.session.get_absolute_url">Revoir la séance</c-button>
+    {% else %}
+    <form method="post" action="{% url 'commencer_seance' %}">{% csrf_token %}<c-button variant="primary" icon="chev" type="submit">{% if seance.session %}Continuer la séance{% else %}Commencer la séance{% endif %}</c-button></form>
+    {% endif %}
+  </section>
+
   {% if derniere %}
   <section class="resume" aria-labelledby="reprendre">
     <span class="subj"><c-icon :name="derniere_matiere.icone" /></span>

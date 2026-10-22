@@ -47,6 +47,7 @@ class Session(models.Model):
     updated = models.DateTimeField(auto_now=True)
     cours_name = models.CharField(max_length=40, default="maths")
     guide = models.BooleanField(default=True, help_text="Mode « Guide-moi » : Learny pose des questions au lieu de donner la solution.")
+    chapitre = models.CharField(max_length=80, blank=True, help_text="Rempli pour une séance du jour : le chapitre révisé.")
 
     class Meta:
         ordering = ["-updated"]

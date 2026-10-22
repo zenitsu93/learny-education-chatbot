@@ -1,7 +1,9 @@
 """Importe un cours PDF : découpe par page, calcule les embeddings, enregistre en base.
 
 À lancer sur sa machine (ou une fois sur le serveur), jamais pendant une requête :
-    python manage.py import_cours "context/Cours de Maths 3ème Burkina Faso.pdf" --matiere maths --titre "Cours de Maths 3e"
+    python manage.py import_cours "context/Cours de Maths 3ème Burkina Faso.pdf" --matiere maths --titre "Cours de Maths 3e" --decalage 1
+
+Les annales s'importent de la même façon, avec leur propre titre (ex. --titre "Annales BEPC 2023").
 """
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -23,14 +25,18 @@ class Command(BaseCommand):
         parser.add_argument("--matiere", required=True, choices=sorted(MATIERES))
         parser.add_argument("--titre", required=True, help="Nom affiché dans les sources, ex. « Cours de Maths 3e ».")
         parser.add_argument("--remplacer", action="store_true", help="Supprime d'abord les passages de ce titre.")
+        parser.add_argument(
+            "--decalage", type=int, default=0,
+            help="Pages du PDF avant la page 1 imprimée (couverture…), pour citer les numéros du livre.",
+        )
 
-    def handle(self, pdf, matiere, titre, remplacer, **opts):
+    def handle(self, pdf, matiere, titre, remplacer, decalage, **opts):
         try:
             lecteur = PdfReader(pdf)
         except Exception as exc:
             raise CommandError(f"Impossible de lire {pdf} : {exc}")
 
-        pages = [(i, p.extract_text() or "") for i, p in enumerate(lecteur.pages, 1)]
+        pages = [(i - decalage, p.extract_text() or "") for i, p in enumerate(lecteur.pages, 1)]
         passages = list(decouper(pages))
         if not passages:
             raise CommandError("Aucun texte trouvé : le PDF est peut-être scanné (image seule).")
@@ -48,7 +54,7 @@ class Command(BaseCommand):
             if remplacer:
                 CourseChunk.objects.filter(matiere=matiere, source=titre).delete()
             CourseChunk.objects.bulk_create(
-                CourseChunk(matiere=matiere, source=titre, page=page, texte=texte, embedding=list(vec))
+                CourseChunk(matiere=matiere, source=titre, page=page if page > 0 else None, texte=texte, embedding=list(vec))
                 for (page, texte), vec in zip(passages, vecteurs)
             )
         self.stdout.write(self.style.SUCCESS(f"{len(passages)} passages importés pour {matiere} ({titre})."))

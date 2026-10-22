@@ -49,7 +49,9 @@
 | 📚 **Trois matières du BEPC** | Mathématiques, physique-chimie et SVT, sur le programme officiel burkinabè de 3e. |
 | 🔎 **Réponses fondées sur les cours** | Les PDF officiels sont découpés et vectorisés une seule fois. À chaque question, Learny retrouve les passages proches et cite la page. |
 | 🧭 **Mode « Guide-moi »** | Sur un exercice, Learny pose une question à la fois au lieu de donner la solution tout de suite. |
+| 📅 **Séance du jour** | Sur l'accueil, un chapitre à réviser en 10 minutes avec un exercice type BEPC. Learny suit l'ordre du cours et équilibre les matières selon la semaine passée. |
 | 🎙️ **Question écrite ou dictée** | La reconnaissance vocale du navigateur évite de taper les formules sur un petit clavier. |
+| 📷 **Photo d'exercice** | L'élève photographie son cahier ou son livre. Learny montre le texte qu'il a lu, l'élève le corrige si besoin, puis Learny l'aide. La photo est réduite sur le téléphone avant l'envoi et n'est jamais gardée. |
 | ⏳ **Quota quotidien** | 30 questions par élève et par jour par défaut, remises à zéro à minuit, heure de Ouagadougou. |
 | 📱 **Connexion par numéro de téléphone** | Inscription en trois champs. Les anciens comptes créés avec un e-mail fonctionnent toujours. |
 | 📶 **Pensé pour la 2G** | Application installable (PWA), page hors ligne, mode économie de données, aucun framework JavaScript lourd (htmx seul, environ 50 ko). |
@@ -92,6 +94,7 @@ chat/
   subjects.py        matières et consignes données à Gemini
   ai.py              appels Gemini (google-genai) : réponses et embeddings
   retrieval.py       découpage des cours et recherche par similarité (numpy)
+  seance.py          séance du jour : matière et chapitre à réviser
   rendering.py       Markdown des réponses, nettoyé (pas de HTML injecté)
   forms.py           inscription, connexion, réglages
   views.py           pages, question (htmx), PWA
@@ -124,13 +127,19 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env          # puis renseigner GEMINI_API_KEY
 python manage.py migrate
-python manage.py import_cours "context/Cours de Maths 3ème Burkina Faso.pdf" --matiere maths --titre "Maths 3e"
+python manage.py import_cours "context/Cours de Maths 3ème Burkina Faso.pdf" --matiere maths --titre "Maths 3e" --decalage 1
 python manage.py runserver
 ```
 
 Puis ouvrir <http://127.0.0.1:8000>.
 
-`import_cours` accepte `--matiere maths|physique-chimie|svt`, `--titre` (le nom affiché dans les sources) et `--remplacer` pour réimporter un cours.
+`import_cours` accepte :
+- `--matiere maths|physique-chimie|svt` ;
+- `--titre`, le nom affiché dans les sources ;
+- `--decalage`, le nombre de pages du PDF avant la page 1 imprimée (1 pour le cours de maths), pour citer les numéros du livre ;
+- `--remplacer`, pour réimporter un cours.
+
+Les annales du BEPC s'importent de la même façon, avec leur propre titre, par exemple `--titre "Annales BEPC 2023"`.
 
 **Tests** : `DJANGO_DEBUG=1 python manage.py test chat`
 
@@ -162,17 +171,19 @@ Puis ouvrir <http://127.0.0.1:8000>.
    pip install -r requirements.txt
    python manage.py migrate
    python manage.py collectstatic --noinput
-   python manage.py import_cours "context/Cours de Maths 3ème Burkina Faso.pdf" --matiere maths --titre "Maths 3e"
+   python manage.py import_cours "context/Cours de Maths 3ème Burkina Faso.pdf" --matiere maths --titre "Maths 3e" --decalage 1
    python manage.py createsuperuser
    ```
 4. Servir `staticfiles/` sous `/static/` (alias dans le `.htaccess` ou dossier `public_html/static`), puis redémarrer l'application.
 
 > [!IMPORTANT]
-> Les PDF de physique-chimie et de SVT restent à importer : seul le cours de maths est fourni dans `context/`.
+> Les PDF de physique-chimie et de SVT et les annales du BEPC restent à importer : seul le cours de maths est fourni dans `context/`. Les chapitres de PC et de SVT dans `chat/subjects.py` sont à caler sur le sommaire de ces cours.
+>
+> Si le cours de maths est déjà en base, relancez son import avec `--decalage 1 --remplacer` pour que les pages citées correspondent au livre.
 
 <h2 id="feuille-de-route">🗺️ Feuille de route</h2>
 
-- [x] **Étape 1 · BEPC prêt** : tuteur fiable en 3e sur le vrai programme, sources citées, mode « Guide-moi », connexion par téléphone, page légère *(V1 du MVP, en test)*
+- [x] **Étape 1 · BEPC prêt** : tuteur fiable en 3e sur le vrai programme, sources citées, mode « Guide-moi », photo d'exercice, compte à rebours et séance du jour, connexion par téléphone, page légère *(V1 du MVP, en test)*
 - [ ] **Étape 2 · Partout, même sans réseau** : packs hors ligne, quiz de 5 minutes avec répétition espacée, Learny sur WhatsApp, ouverture à la Terminale et au BAC
 - [ ] **Étape 3 · Toute la communauté** : explications audio en mooré, dioula et fulfuldé, espace enseignant, suivi des parents, groupes de révision
 

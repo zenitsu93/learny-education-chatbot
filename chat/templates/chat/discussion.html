@@ -42,9 +42,18 @@
       {% include "partials/echange.html" %}
     {% empty %}
     <div class="empty" id="vide">
+      {% if s.chapitre %}
+      <span class="ill"><c-icon :name="m.icone" size="32" /></span>
+      <h2 class="h-sm">Séance du jour : {{ s.chapitre }}</h2>
+      <p>Learny te donne un exercice type BEPC et te guide question par question. Compte une dizaine de minutes.</p>
+      <ul class="suggest" aria-label="Pour commencer">
+        <li><c-button variant="primary" data-suggest="envoyer" data-texte="Séance du jour : {{ s.chapitre }}. Donne-moi un exercice type BEPC et guide-moi pas à pas.">Commencer l'exercice</c-button></li>
+        <li><button type="button" class="chip" data-suggest="envoyer" data-texte="Séance du jour : {{ s.chapitre }}. Rappelle-moi l'essentiel du cours en quelques lignes, puis donne-moi un exercice type BEPC.">Revoir le cours d'abord</button></li>
+      </ul>
+      {% else %}
       <span class="ill"><c-icon name="chat" size="32" /></span>
       <h2 class="h-sm">Pose ta première question de {{ m.nom|lower }}</h2>
-      <p>Écris ou dicte ta question. Learny répond étape par étape et cite la page du cours quand il la trouve.</p>
+      <p>Écris, dicte ou photographie ta question. Learny répond étape par étape et cite la page du cours quand il la trouve.</p>
       <ul class="suggest" aria-label="Exemples de questions">
         {% if m.slug == "maths" %}
         <li><button type="button" class="chip" data-suggest>Comment utiliser le théorème de Thalès ?</button></li>
@@ -57,17 +66,21 @@
         <li><button type="button" class="chip" data-suggest>Comment se transmet le paludisme ?</button></li>
         {% endif %}
       </ul>
+      {% endif %}
     </div>
     {% endfor %}
   </div>
 
   <form class="composer" id="composer" method="post" action="{% url 'question' s.pk %}"
-        hx-post="{% url 'question' s.pk %}" hx-target="#thread" hx-swap="beforeend" hx-disabled-elt="find .send">
+        hx-post="{% url 'question' s.pk %}" hx-target="#thread" hx-swap="beforeend" hx-disabled-elt="find .send"
+        data-photo="{% url 'photo' s.pk %}">
     {% csrf_token %}
+    <input type="file" id="photo" accept="image/*" hidden>
     <div class="listening" hidden><span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>Je t'écoute. Touche à nouveau le micro pour arrêter.</span></div>
     <label class="sr" for="q">Ta question</label>
     <div class="comp-box">
       <textarea id="q" name="question" rows="1" maxlength="2000" required placeholder="Ex. : comment trouver AC avec Thalès ?" enterkeyhint="send"></textarea>
+      <c-button variant="secondary" icon="camera" label="Photographier ton exercice" class="photo-btn round" />
       <c-button variant="secondary" icon="mic" label="Poser ta question à voix haute" class="mic round" aria-pressed="false" />
       <c-button variant="primary" icon="send" label="Envoyer la question" type="submit" class="send round" />
     </div>

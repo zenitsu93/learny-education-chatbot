@@ -1,14 +1,23 @@
+import datetime
+import io
 from unittest import mock
 
 from django import forms
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from . import ai, retrieval
 from .forms import normaliser_telephone
 from .models import Chat, CourseChunk, Session
 from .rendering import markdown_sur
+from .seance import seance_du_jour
+from .subjects import MATIERES
+
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
 
 
 class TelephoneTests(TestCase):
@@ -145,3 +154,151 @@ class RechercheTests(TestCase):
         CourseChunk.objects.create(matiere="maths", source="Maths 3e", page=1, texte="Thalès", embedding=[1.0, 0.0])
         with mock.patch.object(ai, "embed", return_value=None):
             self.assertEqual(retrieval.rechercher("maths", "x"), [])
+
+    def test_import_cite_les_pages_du_livre(self):
+        pages = [mock.Mock(extract_text=mock.Mock(return_value=t)) for t in ["Couverture du cours. " * 10, "Les nombres réels. " * 10]]
+        with mock.patch("chat.management.commands.import_cours.PdfReader", return_value=mock.Mock(pages=pages)), \
+                mock.patch.object(ai, "embed", side_effect=lambda textes: [[1.0, 0.0]] * len(textes)):
+            call_command("import_cours", "cours.pdf", matiere="maths", titre="Maths 3e", decalage=1, stdout=io.StringIO())
+        self.assertEqual(list(CourseChunk.objects.order_by("id").values_list("page", flat=True)), [None, 1])
+
+
+@override_settings(GEMINI_API_KEY="", LEARNY_QUOTA_JOUR=2)
+class PhotoTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("+22670000001", password="x")
+        self.client.force_login(self.user)
+        self.s = Session.objects.create(user=self.user, cours_name="maths", title="Nouvelle discussion")
+
+    def envoyer(self, contenu=JPEG):
+        return self.client.post(reverse("photo", args=[self.s.pk]), {"photo": SimpleUploadedFile("exo.jpg", contenu)})
+
+    def test_lecture_en_mode_demo(self):
+        r = self.envoyer()
+        self.assertContains(r, "J'ai lu ceci")
+        self.assertContains(r, "Mode démonstration")
+        self.assertContains(r, f'hx-post="{reverse("question", args=[self.s.pk])}"')
+        self.assertEqual(Chat.objects.count(), 0)  # lire la photo ne coûte pas de question
+
+    def test_texte_lu_renvoye_a_l_eleve(self):
+        with mock.patch.object(ai, "lire_enonce", return_value="ABC est un triangle. Calcule AN.") as lire:
+            r = self.envoyer()
+        self.assertContains(r, "ABC est un triangle. Calcule AN.")
+        self.assertEqual(lire.call_args.args[2], "image/jpeg")
+
+    def test_photo_illisible(self):
+        with mock.patch.object(ai, "lire_enonce", return_value=""):
+            self.assertContains(self.envoyer(), "Je n'arrive pas à lire la photo")
+
+    def test_gemini_indisponible(self):
+        with mock.patch.object(ai, "lire_enonce", side_effect=ai.LearnyIndisponible):
+            self.assertContains(self.envoyer(), "La photo n'a pas pu être lue")
+
+    def test_fichier_qui_n_est_pas_une_photo(self):
+        with mock.patch.object(ai, "lire_enonce") as lire:
+            self.assertContains(self.envoyer(b"%PDF-1.7 pas une photo"), "Je ne sais pas lire ce fichier")
+            self.assertContains(self.client.post(reverse("photo", args=[self.s.pk])), "Je ne sais pas lire ce fichier")
+        lire.assert_not_called()
+
+    def test_quota_atteint(self):
+        for _ in range(2):
+            Chat.objects.create(session=self.s, message="q", response="r")
+        self.assertContains(self.envoyer(), "Tu as posé tes 2 questions du jour")
+
+    def test_photo_dans_la_discussion_d_un_autre_eleve(self):
+        autre = User.objects.create_user("+22670000002", password="x")
+        s2 = Session.objects.create(user=autre, cours_name="maths", title="Privé")
+        r = self.client.post(reverse("photo", args=[s2.pk]), {"photo": SimpleUploadedFile("exo.jpg", JPEG)})
+        self.assertEqual(r.status_code, 404)
+
+
+class LecturePhotoTests(TestCase):
+    def test_type_image(self):
+        self.assertEqual(ai.type_image(JPEG[:16]), "image/jpeg")
+        self.assertEqual(ai.type_image(b"\x89PNG\r\n\x1a\n\x00\x00"), "image/png")
+        self.assertEqual(ai.type_image(b"RIFF\x00\x00\x00\x00WEBPVP8 "), "image/webp")
+        self.assertEqual(ai.type_image(b"\x00\x00\x00\x18ftypheic\x00\x00"), "image/heic")
+        self.assertIsNone(ai.type_image(b"%PDF-1.7"))
+        self.assertIsNone(ai.type_image(b"<svg xmlns="))
+
+    @override_settings(GEMINI_API_KEY="cle-de-test")
+    def test_reponse_de_gemini(self):
+        faux = mock.Mock()
+        with mock.patch.object(ai, "client", return_value=faux):
+            faux.models.generate_content.return_value = mock.Mock(text="ILLISIBLE.")
+            self.assertEqual(ai.lire_enonce(MATIERES["maths"], JPEG, "image/jpeg"), "")
+            faux.models.generate_content.return_value = mock.Mock(text="  Calcule AN.  ")
+            self.assertEqual(ai.lire_enonce(MATIERES["maths"], JPEG, "image/jpeg"), "Calcule AN.")
+            faux.models.generate_content.side_effect = RuntimeError("503")
+            with self.assertRaises(ai.LearnyIndisponible):
+                ai.lire_enonce(MATIERES["maths"], JPEG, "image/jpeg")
+
+
+@override_settings(GEMINI_API_KEY="")
+class SeanceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("+22670000003", password="x")
+        self.client.force_login(self.user)
+
+    def travailler(self, slug, n, jours=1):
+        """n questions posées dans la matière il y a `jours` jours."""
+        s = Session.objects.create(user=self.user, cours_name=slug, title="x")
+        for _ in range(n):
+            Chat.objects.create(session=s, message="q", response="r")
+        Chat.objects.filter(session=s).update(created=timezone.now() - datetime.timedelta(days=jours))
+
+    def seance_passee(self, slug, chapitre, jours):
+        s = Session.objects.create(user=self.user, cours_name=slug, title="x", chapitre=chapitre)
+        Chat.objects.create(session=s, message="q", response="r")
+        Session.objects.filter(pk=s.pk).update(created=timezone.now() - datetime.timedelta(days=jours))
+
+    def test_matiere_la_moins_travaillee(self):
+        self.travailler("maths", 3)
+        self.travailler("svt", 2)
+        seance = seance_du_jour(self.user)
+        self.assertEqual(seance.matiere.slug, "physique-chimie")
+        self.assertEqual(seance.chapitre, MATIERES["physique-chimie"].chapitres[0])
+        self.assertFalse(seance.faite)
+
+    def test_chapitre_suivant_dans_l_ordre_du_cours(self):
+        self.travailler("physique-chimie", 3)
+        self.travailler("svt", 3)
+        maths = MATIERES["maths"]
+        self.seance_passee("maths", maths.chapitres[0], jours=2)
+        seance = seance_du_jour(self.user)
+        self.assertEqual((seance.matiere.slug, seance.chapitre), ("maths", maths.chapitres[1]))
+
+    def test_programme_fini_on_reprend_le_plus_ancien(self):
+        self.travailler("maths", 5)
+        self.travailler("physique-chimie", 5)
+        svt = MATIERES["svt"]
+        for i, chapitre in enumerate(svt.chapitres):
+            self.seance_passee("svt", chapitre, jours=30 if i == 2 else 10 + i)
+        self.assertEqual(seance_du_jour(self.user).chapitre, svt.chapitres[2])
+
+    def test_commencer_puis_faire_la_seance(self):
+        self.travailler("maths", 3)
+        self.travailler("svt", 2)
+        self.assertContains(self.client.get(reverse("accueil")), "Commencer la séance")
+
+        r = self.client.post(reverse("commencer_seance"))
+        s = Session.objects.exclude(chapitre="").get()
+        self.assertRedirects(r, reverse("discussion", args=[s.pk]))
+        self.assertEqual((s.cours_name, s.title, s.guide), ("physique-chimie", "Séance : Résistance et loi d'Ohm", True))
+        self.assertContains(self.client.get(s.get_absolute_url()), 'data-suggest="envoyer"')
+
+        # Un second clic reprend la même séance.
+        self.client.post(reverse("commencer_seance"))
+        self.assertEqual(Session.objects.exclude(chapitre="").count(), 1)
+        self.assertContains(self.client.get(reverse("accueil")), "Continuer la séance")
+
+        self.client.post(reverse("question", args=[s.pk]), {"question": "Séance du jour : loi d'Ohm."}, HTTP_HX_REQUEST="true")
+        s.refresh_from_db()
+        self.assertEqual(s.title, "Séance : Résistance et loi d'Ohm")
+        self.assertContains(self.client.get(reverse("accueil")), "Séance du jour faite")
+
+    def test_nouvelle_discussion_ne_reprend_pas_la_seance(self):
+        Session.objects.create(user=self.user, cours_name="maths", title="Séance : x", chapitre="Les nombres réels")
+        r = self.client.post(reverse("nouvelle_discussion", args=["maths"]))
+        nouvelle = Session.objects.get(chapitre="")
+        self.assertRedirects(r, reverse("discussion", args=[nouvelle.pk]))

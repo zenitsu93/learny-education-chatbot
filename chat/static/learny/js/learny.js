@@ -149,9 +149,11 @@
 
   $$("[data-suggest]").forEach(function (b) {
     b.addEventListener("click", function () {
-      zone.value = b.textContent.trim();
+      zone.value = b.getAttribute("data-texte") || b.textContent.trim();
       ajuster();
-      zone.focus();
+      // Séance du jour : la consigne part tout de suite. Une simple suggestion reste modifiable.
+      if (b.getAttribute("data-suggest") === "envoyer") form.requestSubmit(envoyer);
+      else zone.focus();
     });
   });
 
@@ -166,26 +168,29 @@
     m.appendChild(b);
     return m;
   }
-  function bulleEcrit() {
+  function bulleEcrit(texte) {
     var m = document.createElement("div");
     m.className = "msg bot";
-    m.innerHTML = '<span class="bot-av" aria-hidden="true"></span><div class="typing"><i></i><i></i><i></i><span>Learny écrit…</span></div>';
+    m.innerHTML = '<span class="bot-av" aria-hidden="true"></span><div class="typing"><i></i><i></i><i></i><span></span></div>';
+    m.querySelector(".typing span").textContent = texte || "Learny écrit…";
     return m;
   }
   function viderAttente() { attente.forEach(function (n) { n.remove(); }); attente = []; }
+  // Formulaires du fil qui envoient une question : « Renvoyer » après une erreur, texte lu sur une photo.
+  function depuisFil(el) { return el.hasAttribute("data-retry") || el.hasAttribute("data-lu"); }
 
   document.body.addEventListener("htmx:beforeRequest", function (e) {
     var source = e.detail.elt;
-    if (source !== form && !source.hasAttribute("data-retry")) return;
-    var texte = source === form ? zone.value.trim() : ($("input[name=question]", source) || {}).value;
+    if (source !== form && !depuisFil(source)) return;
+    var texte = source === form ? zone.value.trim() : ($("[name=question]", source) || {}).value;
     if (!texte) return;
     var vide = $("#vide");
     if (vide) vide.remove();
-    if (source.hasAttribute("data-retry")) {
-      // On retire l'erreur et la question restée en suspens avant de renvoyer.
+    if (depuisFil(source)) {
+      // On retire le bloc d'où part l'envoi et, après une erreur, la question restée en suspens.
       var bloc = source.closest(".msg");
       var avant = bloc && bloc.previousElementSibling;
-      if (avant && avant.classList.contains("user")) avant.remove();
+      if (source.hasAttribute("data-retry") && avant && avant.classList.contains("user")) avant.remove();
       if (bloc) bloc.remove();
     }
     attente = [bulleEleve(texte), bulleEcrit()];
@@ -203,7 +208,7 @@
   // Réseau coupé ou serveur en panne : la question est remise dans la zone de saisie.
   function echec(e) {
     var source = e.detail.elt;
-    if (source !== form && !source.hasAttribute("data-retry")) return;
+    if (source !== form && !depuisFil(source)) return;
     var texte = attente.length ? attente[0].textContent : "";
     viderAttente();
     if (texte && !zone.value) { zone.value = texte; ajuster(); }
@@ -213,9 +218,93 @@
   document.body.addEventListener("htmx:sendError", echec);
   document.body.addEventListener("htmx:responseError", echec);
 
+  /* Photo d'exercice : réduite sur le téléphone avant l'envoi (2G), jamais gardée sur le serveur.
+     Learny renvoie le texte lu, que l'élève corrige avant de l'envoyer comme une question. */
+  var photo = $("#photo", form);
+  var boutonPhoto = $(".photo-btn", form);
+
+  function reduire(fichier) {
+    var cote = document.documentElement.hasAttribute("data-eco") ? 1024 : 1400;
+    return new Promise(function (ok) {
+      var img = new Image();
+      var url = URL.createObjectURL(fichier);
+      img.onload = function () {
+        var r = Math.min(1, cote / Math.max(img.naturalWidth, img.naturalHeight));
+        var c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * r);
+        c.height = Math.round(img.naturalHeight * r);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (b) { ok(b || fichier); }, "image/jpeg", 0.75);
+      };
+      // Format que le navigateur ne sait pas afficher (HEIC…) : on envoie l'original, le serveur tranche.
+      img.onerror = function () { URL.revokeObjectURL(url); ok(fichier); };
+      img.src = url;
+    });
+  }
+
+  function envoyerPhoto(fichier) {
+    var vide = $("#vide");
+    if (vide) vide.remove();
+    var m = document.createElement("div");
+    m.className = "msg user";
+    var b = document.createElement("div");
+    b.className = "bubble photo";
+    var img = document.createElement("img");
+    img.alt = "Photo de ton exercice";
+    b.appendChild(img);
+    m.appendChild(b);
+    var lit = bulleEcrit("Learny lit ta photo…");
+    fil.appendChild(m);
+    fil.appendChild(lit);
+    enBas();
+    annoncer("Photo envoyée. Learny la lit.");
+    boutonPhoto.disabled = true;
+
+    reduire(fichier).then(function (blob) {
+      img.src = URL.createObjectURL(blob);
+      var donnees = new FormData();
+      donnees.append("photo", blob, "exercice.jpg");
+      return fetch(form.getAttribute("data-photo"), {
+        method: "POST",
+        body: donnees,
+        credentials: "same-origin",
+        headers: { "X-CSRFToken": $("[name=csrfmiddlewaretoken]", form).value }
+      });
+    }).then(function (rep) {
+      if (!rep.ok || rep.redirected) throw new Error(rep.status);  // redirection = session expirée
+      return rep.text();
+    }).then(function (html) {
+      var t = document.createElement("template");
+      t.innerHTML = html.trim();
+      var carte = t.content.firstElementChild;
+      lit.replaceWith(carte);
+      htmx.process(carte);
+      annoncer(carte.getAttribute("data-annonce"));
+      enBas();
+      var texte = $("textarea", carte);
+      if (texte) texte.focus({ preventScroll: true });
+    }).catch(function () {
+      lit.remove();
+      m.remove();
+      toast("La photo n'est pas partie. Vérifie ta connexion puis réessaie.");
+      annoncer("La photo n'est pas partie.");
+    }).then(function () { boutonPhoto.disabled = false; });
+  }
+
+  if (photo && boutonPhoto) {
+    boutonPhoto.addEventListener("click", function () { photo.click(); });
+    photo.addEventListener("change", function () {
+      var fichier = photo.files && photo.files[0];
+      photo.value = "";  // la même photo peut être reprise
+      if (fichier) envoyerPhoto(fichier);
+    });
+  }
+
   /* Outils sous chaque réponse : écouter, copier. */
   var parle = null;
   fil.addEventListener("click", function (e) {
+    if (e.target.closest("[data-photo-refaire]")) { if (photo) photo.click(); return; }
     var copier = e.target.closest("[data-copier]");
     if (copier) {
       var texte = copier.closest(".msg").querySelector(".bubble").innerText;
