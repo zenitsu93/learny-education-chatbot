@@ -1,4 +1,5 @@
 import datetime
+import uuid
 
 from django.conf import settings
 from django.contrib import messages
@@ -15,6 +16,7 @@ from django.views.decorators.http import require_POST
 from . import ai, retrieval
 from .forms import ConnexionForm, InscriptionForm, ReglagesForm
 from .models import Chat, Session, UserProfile
+from .seance import seance_du_jour
 from .subjects import MATIERES
 
 
@@ -104,9 +106,24 @@ def accueil(request):
             "restantes": questions_restantes(request.user),
             "quota": settings.LEARNY_QUOTA_JOUR,
             "jours_bepc": jours_avant_bepc(),
+            "seance": seance_du_jour(request.user),
             "nav": "accueil",
         },
     )
+
+
+@login_required
+@require_POST
+def commencer_seance(request):
+    seance = seance_du_jour(request.user)
+    s = seance.session or Session.objects.create(
+        user=request.user,
+        cours_name=seance.matiere.slug,
+        title=f"Séance : {seance.chapitre}"[:80],
+        chapitre=seance.chapitre,
+        guide=True,
+    )
+    return redirect("discussion", pk=s.pk)
 
 
 @login_required
@@ -122,7 +139,7 @@ def matiere(request, slug):
 @require_POST
 def nouvelle_discussion(request, slug):
     _matiere(slug)
-    vide = Session.objects.filter(user=request.user, cours_name=slug, chats__isnull=True).first()
+    vide = Session.objects.filter(user=request.user, cours_name=slug, chapitre="", chats__isnull=True).first()
     s = vide or Session.objects.create(user=request.user, cours_name=slug, title="Nouvelle discussion")
     return redirect("discussion", pk=s.pk)
 
@@ -196,6 +213,37 @@ def question(request, pk):
 
 @login_required
 @require_POST
+def photo(request, pk):
+    """Lit l'énoncé photographié et le renvoie à l'élève pour vérification.
+
+    La lecture ne compte pas dans le quota : c'est la question envoyée ensuite qui compte.
+    """
+    s = get_object_or_404(Session, pk=pk, user=request.user)
+    m = _matiere(s.cours_name)
+    return render(request, "partials/photo.html", {"s": s, "m": m, **_lire_photo(request, m)})
+
+
+def _lire_photo(request, m):
+    if questions_restantes(request.user) <= 0:
+        return {"erreur": "quota", "quota": settings.LEARNY_QUOTA_JOUR}
+    f = request.FILES.get("photo")
+    if f is None or f.size > ai.PHOTO_MAX:
+        return {"erreur": "format"}
+    image = f.read()
+    mime = ai.type_image(image[:16])
+    if mime is None:
+        return {"erreur": "format"}
+    try:
+        enonce = ai.lire_enonce(m, image, mime)
+    except ai.LearnyIndisponible:
+        return {"erreur": "reseau"}
+    if not enonce:
+        return {"erreur": "illisible"}
+    return {"enonce": enonce, "cle": uuid.uuid4().hex[:8]}
+
+
+@login_required
+@require_POST
 def supprimer_discussion(request, pk):
     s = get_object_or_404(Session, pk=pk, user=request.user)
     slug = s.cours_name
@@ -237,7 +285,7 @@ def service_worker(request):
         request,
         "chat/sw.js",
         {
-            "version": "v1-2026-10-02",
+            "version": "v1.1-2026-10-22",
             "static_prefix": static(""),
             "fichiers": [
                 reverse("hors_ligne"),

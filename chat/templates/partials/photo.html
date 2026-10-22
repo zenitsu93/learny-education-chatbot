@@ -1,0 +1,28 @@
+<div class="msg bot" data-annonce="{% if enonce %}Learny a lu ta photo. Vérifie le texte, puis envoie-le.{% else %}Learny n'a pas pu lire ta photo.{% endif %}">
+  <span class="bot-av" aria-hidden="true"><c-icon name="learny" /></span>
+  {% if enonce %}
+  <form class="lu" hx-post="{% url 'question' s.pk %}" hx-target="#thread" hx-swap="beforeend" hx-include="#composer [name=guide]" data-lu>
+    <label class="lbl" for="lu-{{ cle }}">J'ai lu ceci. Corrige le texte si besoin, puis envoie-le.</label>
+    <textarea class="input" id="lu-{{ cle }}" name="question" rows="6" maxlength="2000" required>{{ enonce }}</textarea>
+    <div class="lu-actions">
+      <c-button variant="primary" icon="check" type="submit">C'est bien ça</c-button>
+      <c-button variant="ghost" icon="camera" data-photo-refaire>Reprendre la photo</c-button>
+    </div>
+  </form>
+  {% else %}
+  <div class="alert-bubble" role="alert">
+    {% if erreur == "quota" %}
+      <p><b>Tu as posé tes {{ quota }} questions du jour.</b> Le compteur repart à zéro demain matin.</p>
+    {% elif erreur == "illisible" %}
+      <p><b>Je n'arrive pas à lire la photo.</b> Rapproche-toi de la feuille, évite l'ombre et prends tout l'énoncé.</p>
+    {% elif erreur == "format" %}
+      <p><b>Je ne sais pas lire ce fichier.</b> Prends une photo de ton exercice avec l'appareil photo du téléphone.</p>
+    {% else %}
+      <p><b>La photo n'a pas pu être lue.</b> La connexion a coupé. Réessaie dans un instant.</p>
+    {% endif %}
+    {% if erreur != "quota" %}
+    <div><c-button variant="secondary" size="sm" icon="camera" data-photo-refaire>Reprendre la photo</c-button></div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
